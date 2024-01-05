@@ -20,6 +20,10 @@ struct Args {
   #[arg(short, long)]
   directory: Option<String>,
 
+  /// Segment download concurrency
+  #[arg(short, long, default_value_t = 8)]
+  parallel: i32,
+
   /// The config file
   #[arg(short, long)]
   config: Option<String>,
@@ -51,7 +55,7 @@ fn main() -> MainResult {
 
   if config.streamlink.is_empty() {
     eprintln!("No streamlink.");
-    //return Ok(());
+    return Ok(());
   }
 
   println!(
@@ -78,7 +82,7 @@ fn main() -> MainResult {
       Command::new(config.streamlink)
         .current_dir(dir)
         .arg("--stream-segment-threads")
-        .arg("8")
+        .arg(args.parallel.to_string())
         .arg("-o")
         .arg(format!("{:04}-{:04}.{}", args.show, args.episode, ext))
         .arg(url)
