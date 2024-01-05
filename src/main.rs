@@ -1,4 +1,6 @@
 use clap::Parser;
+use main_error::MainResult;
+use scraper::{Html, Selector};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -27,7 +29,7 @@ fn get_current_dir() -> String {
   String::default()
 }
 
-fn main() {
+fn main() -> MainResult {
   let args = Args::parse();
   let dir = args.directory.unwrap_or(get_current_dir());
 
@@ -35,4 +37,25 @@ fn main() {
     "Downloading episode {} of show {} into {}",
     args.episode, args.show, &dir
   );
+
+  let html = reqwest::blocking::get(format!(
+    "http://www.iyinghua.io/v/{}-{}.html",
+    args.show, args.episode
+  ))?
+  .text()?;
+
+  let doc = Html::parse_document(&html);
+  let playbox = Selector::parse("#playbox")?;
+
+  if let Some(playbox) = doc.select(&playbox).next() {
+    if let Some(vid) = playbox.attr("data-vid") {
+      println!("VID: {}", vid);
+    } else {
+      println!("No VID.");
+    }
+  } else {
+    println!("No playbox.");
+  }
+
+  Ok(())
 }
