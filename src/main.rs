@@ -77,7 +77,7 @@ fn guess_episode(dir: &str) -> Result<(i32, i32), MainError> {
     }
   }
 
-  Err("No file found")?
+  Err("No file found.")?
 }
 
 fn main() -> MainResult {
@@ -89,8 +89,7 @@ fn main() -> MainResult {
   let config: Config = confy::load("yh", None)?;
 
   if config.streamlink.is_empty() {
-    eprintln!("No streamlink.");
-    return Ok(());
+    return Err("No streamlink.")?;
   }
 
   let (show, episode) = if args.show.is_none() || args.episode.is_none() {
@@ -130,10 +129,10 @@ fn main() -> MainResult {
         .arg("best")
         .status()?;
     } else {
-      eprintln!("No VID.");
+      return Err("No VID.")?;
     }
   } else {
-    eprintln!("No playbox.");
+    return Err("No playbox.")?;
   }
 
   Ok(())
