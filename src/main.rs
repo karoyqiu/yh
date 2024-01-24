@@ -73,7 +73,7 @@ fn guess_episode(dir: &str) -> Result<(i32, i32), MainError> {
     if let Some(pos) = filename.find('-') {
       let show: i32 = filename[0..pos].parse()?;
       let episode: i32 = filename[pos + 1..].parse()?;
-      return Ok((show, episode));
+      return Ok((show, episode + 1));
     }
   }
 
