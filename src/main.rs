@@ -1,7 +1,7 @@
-use std::process::Command;
+use std::{fs::read_dir, process::Command, time::UNIX_EPOCH};
 
 use clap::Parser;
-use main_error::MainResult;
+use main_error::{MainError, MainResult};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 struct Args {
   /// The show number
   #[arg(short, long)]
-  show: i32,
+  show: Option<i32>,
 
   /// The episode number
   #[arg(short, long)]
-  episode: i32,
+  episode: Option<i32>,
 
   /// The output directory, default to current directory
   #[arg(short, long)]
@@ -45,6 +45,41 @@ fn get_current_dir() -> String {
   String::default()
 }
 
+fn guess_episode(dir: &str) -> Result<(i32, i32), MainError> {
+  let mut filename = String::new();
+  let mut created = UNIX_EPOCH;
+
+  for entry in read_dir(dir)? {
+    let entry = entry?;
+    let path = entry.path();
+
+    if path.is_file() {
+      let meta = entry.metadata()?;
+      let ctime = meta.created()?;
+
+      if ctime > created {
+        created = ctime;
+        filename = path
+          .file_stem()
+          .unwrap_or_default()
+          .to_os_string()
+          .into_string()
+          .unwrap_or_default();
+      }
+    }
+  }
+
+  if !filename.is_empty() {
+    if let Some(pos) = filename.find('-') {
+      let show: i32 = filename[0..pos].parse()?;
+      let episode: i32 = filename[pos + 1..].parse()?;
+      return Ok((show, episode));
+    }
+  }
+
+  Err("No file found")?
+}
+
 fn main() -> MainResult {
   let config = confy::get_configuration_file_path("yh", None)?;
   println!("Default config file: {}", &config.display());
@@ -58,14 +93,20 @@ fn main() -> MainResult {
     return Ok(());
   }
 
+  let (show, episode) = if args.show.is_none() || args.episode.is_none() {
+    guess_episode(&dir)?
+  } else {
+    (args.show.unwrap(), args.episode.unwrap())
+  };
+
   println!(
     "Downloading episode {} of show {} into {}",
-    args.episode, args.show, &dir
+    episode, show, &dir
   );
 
   let html = reqwest::blocking::get(format!(
     "http://www.iyinghua.io/v/{}-{}.html",
-    args.show, args.episode
+    show, episode
   ))?
   .text()?;
 
@@ -84,7 +125,7 @@ fn main() -> MainResult {
         .arg("--stream-segment-threads")
         .arg(args.parallel.to_string())
         .arg("-o")
-        .arg(format!("{:04}-{:04}.{}", args.show, args.episode, ext))
+        .arg(format!("{:04}-{:04}.{}", show, episode, ext))
         .arg(url)
         .arg("best")
         .status()?;
